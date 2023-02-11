@@ -29,7 +29,7 @@ contract CreateCampaign is Ownable {
     }
 
     mapping(uint => CampaignIndex) public idToCampaignIndex;
-
+// @audit: I suggest adding `nonReentrant` to this function
     function createCampaign(string memory  _campaignName, 
                             string memory  _Symbol, 
                             string memory _uri, 

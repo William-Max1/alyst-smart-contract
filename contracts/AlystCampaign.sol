@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 
-
+// @audit: I suggest using openzeppelin IERC20 instead. But this is alright!
 interface NOTEInterface {
     function balanceOf(address account) external view returns (uint256);
     function transfer(address to, uint256 amount) external returns (bool);
@@ -18,7 +18,7 @@ interface NOTEInterface {
 interface Turnstile {
     function assign(uint256) external returns(uint256);
 }
-
+//@audit: please add some events for log. This helps to debug and keep trace of them
 contract AlystCampaign is AccessControl ,ERC721URIStorage {
 
     using Counters for Counters.Counter;
@@ -42,7 +42,7 @@ contract AlystCampaign is AccessControl ,ERC721URIStorage {
 
 
     mapping(address => uint) public userToPledgeAmount;
-    mapping(address => bool) public userHasPledged;
+    mapping(address => bool) public userHasPledged;//@audit: mapping of bool consumes large amount of gas, use mapping to uint256, `0` for false and `1` for true
 
 
     constructor(string memory _campaignName, 
@@ -60,30 +60,30 @@ contract AlystCampaign is AccessControl ,ERC721URIStorage {
         campaignTimeOpen = block.timestamp;
         turnstile.assign(_csrID);
     }
-
+//@audit: using custom errors is better(gas saving)
     modifier onlyAdmin() {
     require(isAdmin(msg.sender), "Restricted to admins.");
     _;
   }
-
+// @audit: I suggest adding `nonReentrant` to this function
     function pledgeToCampaign(uint _amount) public {
-        require(_amount > 0);
-        NOTE.transferFrom(msg.sender, address(this), _amount);
+        require(_amount > 0);// @audit: please cache _amount to save gas
+        NOTE.transferFrom(msg.sender, address(this), _amount);// @audit: use `safetransferFrom` instead
 
         if (!userHasPledged[msg.sender]) {
              pledgers.push(msg.sender);
         }
         userHasPledged[msg.sender] = true;
-
+        // @audit:(severe issue)I think this shoud be `+=`, when a msg.sender has a campaign and add more fund, this may be wrong. (Though he can refund and then pledge again)
         userToPledgeAmount[msg.sender] = _amount;
         campaignFundedAmount = campaignFundedAmount + _amount;
 
     }
-
+// @audit: I suggest adding `nonReentrant` to this function
     function mintProofOfPledge() public returns (uint) {
         require(block.timestamp > campaignTimeOpen + campaignPeriod);
         require(campaignFundedAmount == campaignTargetAmount || campaignFundedAmount > campaignTargetAmount);
-        require(userHasPledged[msg.sender] == true);
+        require(userHasPledged[msg.sender] == true);//@audit: use `require(userHasPledged[msg.sender])` instead
 
         _tokenIds.increment();
 
@@ -95,7 +95,7 @@ contract AlystCampaign is AccessControl ,ERC721URIStorage {
 
     }
 
-    
+// @audit: I suggest adding `nonReentrant` to this function
     function refund() public {   
         require(block.timestamp > campaignTimeOpen + campaignPeriod);
         require(campaignTargetAmount != campaignFundedAmount);
@@ -104,7 +104,7 @@ contract AlystCampaign is AccessControl ,ERC721URIStorage {
         // check amount invested 
         uint refundAmount = userToPledgeAmount[msg.sender];
         userToPledgeAmount[msg.sender] = 0;
-        NOTE.transferFrom(address(this), msg.sender, refundAmount);
+        NOTE.transferFrom(address(this), msg.sender, refundAmount);// @audit: use `transfer` instead
 
         
     }
@@ -118,7 +118,7 @@ contract AlystCampaign is AccessControl ,ERC721URIStorage {
 
        uint noteContractBalance = NOTE.balanceOf(address(this));
 
-       NOTE.transferFrom(address(this), _campaignTreasury, noteContractBalance);
+       NOTE.transferFrom(address(this), _campaignTreasury, noteContractBalance);// @audit: use `transfer` instead. not transferfrom
 
         // NOTE.transferFrom(address(this), _campaignTreasury, projectFund);
         // NOTE.transferFrom(address(this), alystTreasury, alystServiceCharge);

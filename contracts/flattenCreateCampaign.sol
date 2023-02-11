@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.15;
 
-
+// @audit: I suggest using openzeppelin IERC20 instead. But this is alright!
 interface NOTEInterface {
     function balanceOf(address account) external view returns (uint256);
     function transfer(address to, uint256 amount) external returns (bool);
@@ -64,8 +64,8 @@ contract AlystCampaign {
        uint alystServiceCharge = address(this).balance * 3 / 200  ;
        uint projectFund = address(this).balance - alystServiceCharge;
 
-        NOTE.transferFrom(address(this), _campaignTreasury, projectFund);
-        NOTE.transferFrom(address(this), alystTreasury, alystServiceCharge);
+        NOTE.transferFrom(address(this), _campaignTreasury, projectFund);// @audit: use transfer instead of transferfrom
+        NOTE.transferFrom(address(this), alystTreasury, alystServiceCharge);// @audit: use transfer instead of transferfrom
 
     }
 
